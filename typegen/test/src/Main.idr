@@ -253,8 +253,8 @@ remainingIo = do
   assertEq "just typegen takes no file argument"
     False (isInfixOf "{{" showOut)
   (typegenOut, typegenCode) <- run "just typegen"
-  assertEq "just typegen on empty schemas succeeds" 0 typegenCode
-  assertEq "just typegen does not log malformed schema on empty schemas"
+  assertEq "just typegen succeeds on committed schemas" 0 typegenCode
+  assertEq "just typegen does not log malformed schema"
     False (isInfixOf "malformed schema" typegenOut)
 
 covering

@@ -1,0 +1,11 @@
+{
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string"
+    },
+    "year": {
+      "type": "number"
+    }
+  }
+}
