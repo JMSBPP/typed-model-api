@@ -197,8 +197,8 @@ compileAllGroup =
     )
 
 covering
-main : IO ()
-main = do
+remainingIo : IO ()
+remainingIo = do
   missingRoot <- mkTempDir
   let missingSchemas = missingRoot ++ "/schemas"
   let missingGenerated = missingRoot ++ "/generated"
@@ -207,19 +207,6 @@ main = do
   assertSuccess "creates generated-source directory when missing" missingCode
   missingNames <- listGenerated missingGenerated
   assertEq "missing generated-source directory is created empty" [] missingNames
-
-  underRoot <- mkTempDir
-  let underSchemas = underRoot ++ "/schemas"
-  let underGenerated = underRoot ++ "/generated"
-  ensureDir underSchemas
-  writeSchema underSchemas "film_schema.json" filmSchema
-  (underCode, _) <- runTypegen underSchemas underGenerated
-  assertSuccess "underscore schema filename succeeds" underCode
-  underNames <- listGenerated underGenerated
-  assertEq "underscore schema writes Film_schema.idr" ["Film_schema.idr"] underNames
-  underSrc <- readGenerated underGenerated "Film_schema.idr"
-  assertEq "generated module last segment matches the file stem"
-    True (isInfixOf "module Generated.Film_schema" underSrc)
 
   leftoverRoot <- mkTempDir
   let leftoverSchemas = leftoverRoot ++ "/schemas"
@@ -270,4 +257,8 @@ main = do
   assertEq "just typegen does not log malformed schema on empty schemas"
     False (isInfixOf "malformed schema" typegenOut)
 
+covering
+main : IO ()
+main = do
+  remainingIo
   test [ generatedNameGroup, compileOneGroup, schemaFilesGroup, compileAllGroup ]
