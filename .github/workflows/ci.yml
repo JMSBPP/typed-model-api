@@ -1,0 +1,35 @@
+name: CI
+
+on:
+  pull_request:
+    branches:
+      - dev
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: test
+    runs-on: ubuntu-latest
+    container: ghcr.io/stefan-hoeck/idris2-pack:nightly-260921
+    env:
+      PACK_USER_DIR: /root/.config/pack
+      PACK_STATE_DIR: /root/.local/state/pack
+      PACK_CACHE_DIR: /root/.cache/pack
+      PACK_BIN_DIR: /root/.local/bin
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install just
+        run: |
+          apt-get update
+          apt-get install --yes curl ca-certificates
+          curl -sSL -o /tmp/just.tar.gz \
+            https://github.com/casey/just/releases/download/1.59.0/just-1.59.0-x86_64-unknown-linux-musl.tar.gz
+          tar xzf /tmp/just.tar.gz -C /tmp just
+          install -m 0755 /tmp/just /usr/local/bin/just
+          just --version
+      - name: Test typegen
+        run: pack test typegen
+      - name: Test typed-model-api
+        run: pack test typed-model-api
