@@ -13,7 +13,7 @@ authors = "JMSBPP"
 -- langversion
 
 -- packages to add to search path
-depends = typed-model-api
+depends = hedgehog, typed-model-api
 
 -- modules to install
 -- modules =

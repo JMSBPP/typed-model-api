@@ -16,7 +16,7 @@ authors = "JMSBPP"
 depends = json-schema
 
 -- modules to install
-modules = Typed_model_api
+modules = Typed_model_api, Generated.FilmSchema
 
 -- main file (i.e. file to load at REPL)
 -- main =

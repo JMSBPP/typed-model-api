@@ -13,6 +13,8 @@
 - On a bad schema, typegen logs `malformed schema` and stops with a non-zero exit. Remaining schemas are not processed.
 - Generated types do not implement `Cast` to JSON in this slice.
 
+Testing (Hedgehog, pure API, remaining IO, fixture): `.spec/testing.md`.
+
 ## Open
 
 None.
