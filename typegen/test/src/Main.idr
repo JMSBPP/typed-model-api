@@ -1,6 +1,5 @@
 module Main
 
-import Data.List
 import Data.String
 import GeneratedName
 import Hedgehog
@@ -24,10 +23,6 @@ assertSuccess : String -> ExitCode -> IO ()
 assertSuccess label ExitSuccess = putStrLn ("ok " ++ label)
 assertSuccess label (ExitFailure n) =
   fail (label ++ ": expected success got " ++ show n)
-
-assertFailure : String -> ExitCode -> IO ()
-assertFailure label ExitSuccess = fail (label ++ ": expected failure got success")
-assertFailure label (ExitFailure _) = putStrLn ("ok " ++ label)
 
 covering
 mkTempDir : IO String
@@ -74,6 +69,18 @@ filmSchema = """
     },
     "year": {
       "type": "number"
+    }
+  }
+}
+"""
+
+userSchema : String
+userSchema = """
+{
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string"
     }
   }
 }
@@ -134,19 +141,64 @@ compileOneGroup =
          compileOneMalformedCases
     )
 
+schemaFilesCases : List (String, List String, List String)
+schemaFilesCases =
+  [ ("empty list writes nothing", [], [])
+  , ("several json names are kept and sorted", ["user.json", "filmSchema.json"], ["filmSchema.json", "user.json"])
+  , ("non-JSON names dropped", ["filmSchema.json", "README.md", "notes.txt", "nested"], ["filmSchema.json"])
+  ]
+
+schemaFilesGroup : Group
+schemaFilesGroup =
+  MkGroup "schemaFiles"
+    (map (\(name, entries, expected) =>
+            (fromString name, property1 $ schemaFiles entries === expected))
+         schemaFilesCases)
+
+compileAllEmptyCases : List (String, List (String, String), Either String (List (String, String)))
+compileAllEmptyCases =
+  [ ("empty list writes nothing", [], Right [])
+  ]
+
+compileAllModuleCases : List (String, List (String, String), List String)
+compileAllModuleCases =
+  [ ( "several valid schemas"
+    , [("filmSchema.json", filmSchema), ("user.json", userSchema)]
+    , ["FilmSchema", "User"]
+    )
+  ]
+
+compileAllMalformedCases : List (String, List (String, String))
+compileAllMalformedCases =
+  [ ( "first malformed stops and remaining schemas are not compiled"
+    , [("bad.json", "{"), ("filmSchema.json", filmSchema)]
+    )
+  ]
+
+compileAllGroup : Group
+compileAllGroup =
+  MkGroup "compileAll"
+    ( map (\(name, inputs, expected) =>
+            (fromString name, property1 $ compileAll inputs === expected))
+         compileAllEmptyCases
+    ++ map (\(name, inputs, moduleLasts) =>
+            ( fromString name
+            , property1 $
+                case compileAll inputs of
+                  Left err => failWith Nothing err
+                  Right pairs => map fst pairs === moduleLasts
+            ))
+         compileAllModuleCases
+    ++ map (\(name, inputs) =>
+            ( fromString name
+            , property1 $ compileAll inputs === Left "malformed schema"
+            ))
+         compileAllMalformedCases
+    )
+
 covering
 main : IO ()
 main = do
-  root <- mkTempDir
-  let schemaDir = root ++ "/schemas"
-  let generatedDir = root ++ "/generated"
-  ensureDir schemaDir
-  ensureDir generatedDir
-  (code, _) <- runTypegen schemaDir generatedDir
-  assertSuccess "empty schema directory succeeds" code
-  names <- listGenerated generatedDir
-  assertEq "empty schema directory writes nothing" [] names
-
   missingRoot <- mkTempDir
   let missingSchemas = missingRoot ++ "/schemas"
   let missingGenerated = missingRoot ++ "/generated"
@@ -168,42 +220,6 @@ main = do
   underSrc <- readGenerated underGenerated "Film_schema.idr"
   assertEq "generated module last segment matches the file stem"
     True (isInfixOf "module Generated.Film_schema" underSrc)
-
-  severalRoot <- mkTempDir
-  let severalSchemas = severalRoot ++ "/schemas"
-  let severalGenerated = severalRoot ++ "/generated"
-  ensureDir severalSchemas
-  writeSchema severalSchemas "filmSchema.json" filmSchema
-  writeSchema severalSchemas "user.json" """
-{
-  "type": "object",
-  "properties": {
-    "name": {
-      "type": "string"
-    }
-  }
-}
-"""
-  (severalCode, _) <- runTypegen severalSchemas severalGenerated
-  assertSuccess "several valid schemas succeed" severalCode
-  severalNames <- listGenerated severalGenerated
-  assertEq "several valid schemas write one generated module each"
-    ["FilmSchema.idr", "User.idr"] (sort severalNames)
-
-  ignoreRoot <- mkTempDir
-  let ignoreSchemas = ignoreRoot ++ "/schemas"
-  let ignoreGenerated = ignoreRoot ++ "/generated"
-  ensureDir ignoreSchemas
-  writeSchema ignoreSchemas "filmSchema.json" filmSchema
-  writeSchema ignoreSchemas "README.md" "# not a schema"
-  writeSchema ignoreSchemas "notes.txt" "ignore me"
-  ensureDir (ignoreSchemas ++ "/nested")
-  writeSchema (ignoreSchemas ++ "/nested") "nested.json" filmSchema
-  (ignoreCode, _) <- runTypegen ignoreSchemas ignoreGenerated
-  assertSuccess "ignores nested JSON and non-JSON files" ignoreCode
-  ignoreNames <- listGenerated ignoreGenerated
-  assertEq "only top-level JSON becomes generated source"
-    ["FilmSchema.idr"] ignoreNames
 
   leftoverRoot <- mkTempDir
   let leftoverSchemas = leftoverRoot ++ "/schemas"
@@ -236,19 +252,6 @@ main = do
   assertEq "stale generated source is gone"
     False (isInfixOf "STALE" overwriteSrc)
 
-  stopRoot <- mkTempDir
-  let stopSchemas = stopRoot ++ "/schemas"
-  let stopGenerated = stopRoot ++ "/generated"
-  ensureDir stopSchemas
-  writeSchema stopSchemas "bad.json" "{"
-  writeSchema stopSchemas "filmSchema.json" filmSchema
-  (stopCode, stopLog) <- runTypegen stopSchemas stopGenerated
-  assertFailure "stops on the first malformed schema" stopCode
-  assertEq "first malformed schema logs malformed schema" ["malformed schema"] stopLog
-  stopNames <- listGenerated stopGenerated
-  assertEq "remaining schemas are not processed after the first malformed one"
-    [] stopNames
-
   (gitOut, 0) <- run "git rev-parse --show-toplevel"
     | _ => fail "git rev-parse --show-toplevel failed"
   let justRoot = trim gitOut
@@ -267,4 +270,4 @@ main = do
   assertEq "just typegen does not log malformed schema on empty schemas"
     False (isInfixOf "malformed schema" typegenOut)
 
-  test [ generatedNameGroup, compileOneGroup ]
+  test [ generatedNameGroup, compileOneGroup, schemaFilesGroup, compileAllGroup ]

@@ -47,6 +47,10 @@ namedSource moduleLast typeName src =
   if libraryType == typeName then src else replaceAll libraryType typeName src
 
 export
+schemaFiles : List String -> List String
+schemaFiles = sort . filter (isSuffixOf ".json")
+
+export
 covering
 compileOne : (filename : String) -> (jsonText : String) -> Either String String
 compileOne filename jsonText =
@@ -64,6 +68,21 @@ compileOne filename jsonText =
   in Right $ namedSource moduleLast typeName $
        concat $ intersperse "\n" $ compileSchema schema @{opts}
 
+export
+covering
+compileAll : List (String, String) -> Either String (List (String, String))
+compileAll [] = Right []
+compileAll ((filename, jsonText) :: rest) =
+  case compileOne filename jsonText of
+    Left err => Left err
+    Right src =>
+      case fromFilename filename of
+        Nothing => Left "malformed schema"
+        Just (moduleLast, _) =>
+          case compileAll rest of
+            Left err => Left err
+            Right pairs => Right ((moduleLast, src) :: pairs)
+
 covering
 processOne : (schemaDir : String) -> (generatedDir : String) -> (filename : String) -> IO (ExitCode, List String)
 processOne schemaDir generatedDir filename = do
@@ -78,12 +97,31 @@ processOne schemaDir generatedDir filename = do
   pure (ExitSuccess, [])
 
 covering
+readSchemas : (schemaDir : String) -> List String -> IO (Either String (List (String, String)))
+readSchemas _ [] = pure (Right [])
+readSchemas schemaDir (filename :: rest) = do
+  Right jsonStr <- readFile (schemaDir ++ "/" ++ filename)
+    | Left _ => pure (Left "malformed schema")
+  Right restSchemas <- readSchemas schemaDir rest
+    | Left err => pure (Left err)
+  pure (Right ((filename, jsonStr) :: restSchemas))
+
+covering
+writeGeneratedSource : (generatedDir : String) -> List (String, String) -> IO (ExitCode, List String)
+writeGeneratedSource _ [] = pure (ExitSuccess, [])
+writeGeneratedSource generatedDir ((moduleLast, src) :: rest) = do
+  Right () <- writeFile (generatedDir ++ "/" ++ moduleLast ++ ".idr") src
+    | Left _ => malformed
+  writeGeneratedSource generatedDir rest
+
+covering
 processAll : (schemaDir : String) -> (generatedDir : String) -> List String -> IO (ExitCode, List String)
-processAll _ _ [] = pure (ExitSuccess, [])
-processAll schemaDir generatedDir (filename :: rest) = do
-  (ExitSuccess, _) <- processOne schemaDir generatedDir filename
-    | fail => pure fail
-  processAll schemaDir generatedDir rest
+processAll schemaDir generatedDir filenames = do
+  Right schemas <- readSchemas schemaDir filenames
+    | Left msg => pure (ExitFailure 1, [msg])
+  let Right generated = compileAll schemas
+    | Left msg => pure (ExitFailure 1, [msg])
+  writeGeneratedSource generatedDir generated
 
 export
 covering
@@ -93,8 +131,7 @@ runTypegen schemaDir generatedDir = do
     | fail => pure fail
   Right entries <- listDir schemaDir
     | Left _ => malformed
-  let schemas = sort $ filter (isSuffixOf ".json") entries
-  processAll schemaDir generatedDir schemas
+  processAll schemaDir generatedDir (schemaFiles entries)
 
 export
 covering
