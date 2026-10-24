@@ -97,6 +97,43 @@ generatedNameGroup =
             (fromString name, property1 $ fromFilename filename === expected))
          fromFilenameCases)
 
+compileOneSourceCases : List (String, String, String, List String, List String)
+compileOneSourceCases =
+  [ ( "one valid schema source"
+    , "filmSchema.json"
+    , filmSchema
+    , ["module Generated.FilmSchema", "record FilmSchema"]
+    , ["Cast"]
+    )
+  ]
+
+compileOneMalformedCases : List (String, String, String)
+compileOneMalformedCases =
+  [ ("malformed JSON", "filmSchema.json", "{")
+  , ("well-formed JSON that is not a schema", "filmSchema.json", "\"not a schema\"")
+  , ("invalid Idris identifier in the filename", "film-schema.json", filmSchema)
+  ]
+
+compileOneGroup : Group
+compileOneGroup =
+  MkGroup "compileOne"
+    ( map (\(name, filename, json, required, forbidden) =>
+            ( fromString name
+            , property1 $
+                case compileOne filename json of
+                  Left err => failWith Nothing err
+                  Right src => do
+                    traverse_ (\needle => isInfixOf needle src === True) required
+                    traverse_ (\needle => isInfixOf needle src === False) forbidden
+            ))
+         compileOneSourceCases
+    ++ map (\(name, filename, json) =>
+            ( fromString name
+            , property1 $ compileOne filename json === Left "malformed schema"
+            ))
+         compileOneMalformedCases
+    )
+
 covering
 main : IO ()
 main = do
@@ -118,23 +155,6 @@ main = do
   assertSuccess "creates generated-source directory when missing" missingCode
   missingNames <- listGenerated missingGenerated
   assertEq "missing generated-source directory is created empty" [] missingNames
-
-  oneRoot <- mkTempDir
-  let oneSchemas = oneRoot ++ "/schemas"
-  let oneGenerated = oneRoot ++ "/generated"
-  ensureDir oneSchemas
-  writeSchema oneSchemas "filmSchema.json" filmSchema
-  (oneCode, _) <- runTypegen oneSchemas oneGenerated
-  assertSuccess "one valid schema succeeds" oneCode
-  oneNames <- listGenerated oneGenerated
-  assertEq "one valid schema writes one generated module" ["FilmSchema.idr"] oneNames
-  oneSrc <- readGenerated oneGenerated "FilmSchema.idr"
-  assertEq "generated module header is Generated.FilmSchema"
-    True (isInfixOf "module Generated.FilmSchema" oneSrc)
-  assertEq "generated module declares FilmSchema"
-    True (isInfixOf "record FilmSchema" oneSrc)
-  assertEq "generated types do not implement Cast"
-    False (isInfixOf "Cast" oneSrc)
 
   underRoot <- mkTempDir
   let underSchemas = underRoot ++ "/schemas"
@@ -184,39 +204,6 @@ main = do
   ignoreNames <- listGenerated ignoreGenerated
   assertEq "only top-level JSON becomes generated source"
     ["FilmSchema.idr"] ignoreNames
-
-  badJsonRoot <- mkTempDir
-  let badJsonSchemas = badJsonRoot ++ "/schemas"
-  let badJsonGenerated = badJsonRoot ++ "/generated"
-  ensureDir badJsonSchemas
-  writeSchema badJsonSchemas "filmSchema.json" "{"
-  (badJsonCode, badJsonLog) <- runTypegen badJsonSchemas badJsonGenerated
-  assertFailure "malformed JSON fails the run" badJsonCode
-  assertEq "malformed JSON logs malformed schema" ["malformed schema"] badJsonLog
-  badJsonNames <- listGenerated badJsonGenerated
-  assertEq "malformed JSON writes no generated module" [] badJsonNames
-
-  notSchemaRoot <- mkTempDir
-  let notSchemaSchemas = notSchemaRoot ++ "/schemas"
-  let notSchemaGenerated = notSchemaRoot ++ "/generated"
-  ensureDir notSchemaSchemas
-  writeSchema notSchemaSchemas "filmSchema.json" "\"not a schema\""
-  (notSchemaCode, notSchemaLog) <- runTypegen notSchemaSchemas notSchemaGenerated
-  assertFailure "well-formed JSON that is not a schema fails the run" notSchemaCode
-  assertEq "non-schema JSON logs malformed schema" ["malformed schema"] notSchemaLog
-  notSchemaNames <- listGenerated notSchemaGenerated
-  assertEq "non-schema JSON writes no generated module" [] notSchemaNames
-
-  badNameRoot <- mkTempDir
-  let badNameSchemas = badNameRoot ++ "/schemas"
-  let badNameGenerated = badNameRoot ++ "/generated"
-  ensureDir badNameSchemas
-  writeSchema badNameSchemas "film-schema.json" filmSchema
-  (badNameCode, badNameLog) <- runTypegen badNameSchemas badNameGenerated
-  assertFailure "invalid Idris identifier in filename fails the run" badNameCode
-  assertEq "invalid filename logs malformed schema" ["malformed schema"] badNameLog
-  badNameNames <- listGenerated badNameGenerated
-  assertEq "invalid filename writes no generated module" [] badNameNames
 
   leftoverRoot <- mkTempDir
   let leftoverSchemas = leftoverRoot ++ "/schemas"
@@ -280,4 +267,4 @@ main = do
   assertEq "just typegen does not log malformed schema on empty schemas"
     False (isInfixOf "malformed schema" typegenOut)
 
-  test [ generatedNameGroup ]
+  test [ generatedNameGroup, compileOneGroup ]
