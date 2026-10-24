@@ -1,0 +1,27 @@
+[custom.all.json-schema]
+type = "github"
+url = "https://github.com/madman-bob/idris2-json-schema"
+commit = "83a7214e8d28b2367c4f585a40acfb7edbbc0ce2"
+ipkg = "json-schema.ipkg"
+
+[custom.all.typed-model-api]
+type = "local"
+path = "."
+ipkg = "typed-model-api.ipkg"
+test = "test/test.ipkg"
+
+[custom.all.typed-model-api-test]
+type = "local"
+path = "test"
+ipkg = "test.ipkg"
+
+[custom.all.typegen]
+type = "local"
+path = "."
+ipkg = "typegen.ipkg"
+test = "typegen/test/test.ipkg"
+
+[custom.all.typegen-test]
+type = "local"
+path = "typegen/test"
+ipkg = "test.ipkg"

@@ -1,0 +1,11 @@
+package typegen
+version = 0.1.0
+authors = "JMSBPP"
+
+depends = contrib, json-schema
+
+modules = GeneratedName, Typegen
+
+main = Typegen
+executable = typegen
+sourcedir = "typegen"

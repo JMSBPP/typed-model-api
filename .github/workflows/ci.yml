@@ -20,6 +20,8 @@ jobs:
       PACK_BIN_DIR: /root/.local/bin
     steps:
       - uses: actions/checkout@v4
+      - name: Trust the checkout
+        run: git config --global --add safe.directory '*'
       - name: Install just
         run: |
           apt-get update
