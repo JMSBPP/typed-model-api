@@ -3,6 +3,7 @@ module Main
 import Data.List
 import Data.String
 import GeneratedName
+import Hedgehog
 import System
 import System.Directory
 import System.File
@@ -78,31 +79,27 @@ filmSchema = """
 }
 """
 
+fromFilenameCases : List (String, String, Maybe (String, String))
+fromFilenameCases =
+  [ ("filmSchema.json names FilmSchema", "filmSchema.json", Just ("FilmSchema", "FilmSchema"))
+  , ("user.json stem is User not User.json", "user.json", Just ("User", "User"))
+  , ("FilmSchema.json keeps leading uppercase", "FilmSchema.json", Just ("FilmSchema", "FilmSchema"))
+  , ("hyphen in filename is not a valid Idris identifier", "film-schema.json", Nothing)
+  , ("space in filename is not a valid Idris identifier", "film schema.json", Nothing)
+  , ("underscore in stem stays in the generated name", "film_schema.json", Just ("Film_schema", "Film_schema"))
+  , ("reserved Idris identifier Type is not valid", "Type.json", Nothing)
+  ]
+
+generatedNameGroup : Group
+generatedNameGroup =
+  MkGroup "GeneratedName"
+    (map (\(name, filename, expected) =>
+            (fromString name, property1 $ fromFilename filename === expected))
+         fromFilenameCases)
+
 covering
 main : IO ()
 main = do
-  assertEq "filmSchema.json names FilmSchema"
-    (Just ("FilmSchema", "FilmSchema"))
-    (fromFilename "filmSchema.json")
-  assertEq "user.json stem is User not User.json"
-    (Just ("User", "User"))
-    (fromFilename "user.json")
-  assertEq "FilmSchema.json keeps leading uppercase"
-    (Just ("FilmSchema", "FilmSchema"))
-    (fromFilename "FilmSchema.json")
-  assertEq "hyphen in filename is not a valid Idris identifier"
-    Nothing
-    (fromFilename "film-schema.json")
-  assertEq "space in filename is not a valid Idris identifier"
-    Nothing
-    (fromFilename "film schema.json")
-  assertEq "underscore in stem stays in the generated name"
-    (Just ("Film_schema", "Film_schema"))
-    (fromFilename "film_schema.json")
-  assertEq "reserved Idris identifier Type is not valid"
-    Nothing
-    (fromFilename "Type.json")
-
   root <- mkTempDir
   let schemaDir = root ++ "/schemas"
   let generatedDir = root ++ "/generated"
@@ -282,3 +279,5 @@ main = do
   assertEq "just typegen on empty schemas succeeds" 0 typegenCode
   assertEq "just typegen does not log malformed schema on empty schemas"
     False (isInfixOf "malformed schema" typegenOut)
+
+  test [ generatedNameGroup ]
