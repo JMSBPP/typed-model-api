@@ -1,23 +1,24 @@
+# [STATE](../node_modules/@typesafe-ai/sdk/dist/index.mjs::L190)
+
+```cpp
 ModelRequest {
 	/** Text, an asset, a JSON object, or an array to evaluate. */
 	state: NonNullable<EntryType>;
 }
-- [what is NonNullable ? -res](./notes/idris-nonnullable.md) 
-- what is EntryType ?
+```
+> State can be constructed as "asset" Text, JSON object, or an array
+
 > A JSON object seems to encapsulate a good entry point to type state
 
-This seems to imply that State can be constructed as "asset" Text, JSON object, or an array
+- [what is NonNullable ? -res](./notes/idris-nonnullable.md) 
+- what is EntryType ?
 
 - what is the minimal schema needed to interact with the API, typying the curl request
   - res: [json_ex](####json_ex) 
 
-Our first state **motivation** is a reference to the [cost tracking of token usage](./typesafe-usage-query.md) 
+Our first state **motivation** is 
 
-
-
-
-
-
+# [state::cost tracking of token usage](./typesafe-usage-query.md) 
 
 
 
@@ -43,11 +44,6 @@ curl --request POST \
   }
 ```
 
-The example above shows a requirement once we define a state the minimal model set up and empty questions what is the expected result ?
 
-
-
-
-NonNullable<EntryType>
 
 
