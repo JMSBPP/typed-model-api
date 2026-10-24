@@ -1,7 +1,7 @@
 [custom.all.json-schema]
 type = "github"
 url = "https://github.com/madman-bob/idris2-json-schema"
-commit = "latest:main"
+commit = "83a7214e8d28b2367c4f585a40acfb7edbbc0ce2"
 ipkg = "json-schema.ipkg"
 
 [custom.all.typed-model-api]
