@@ -34,4 +34,4 @@ jobs:
       - name: Test typegen
         run: pack test typegen
       - name: Test typed-model-api
-        run: pack test typed-model-api
+        run: pack --no-prompt test typed-model-api

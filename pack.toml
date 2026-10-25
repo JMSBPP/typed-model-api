@@ -1,3 +1,6 @@
+[install]
+whitelist = [ "tls" ]
+
 [custom.all.json-schema]
 type = "github"
 url = "https://github.com/madman-bob/idris2-json-schema"
